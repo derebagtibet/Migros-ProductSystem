@@ -313,5 +313,3 @@ Software Engineering Student
 Backend Developer
 
 Java • Spring Boot • Microservices • Docker • PostgreSQL
-# MigrosCaseStudy
-# MigrosCaseStudy
