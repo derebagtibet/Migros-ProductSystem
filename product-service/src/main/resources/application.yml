@@ -8,6 +8,14 @@ spring:
   profiles:
     active: dev
 
+  cloud:
+    openfeign:
+      client:
+        config:
+          category-service:
+            connectTimeout: 1000
+            readTimeout: 2000
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/product_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -22,4 +30,45 @@ spring:
 
 services:
   category:
-    url: http://category-service:8082
+    url: ${SERVICES_CATEGORY_URL:http://category-service:8082}
+
+resilience4j:
+  retry:
+    instances:
+      categoryService:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - feign.RetryableException
+
+  circuitbreaker:
+    instances:
+      categoryService:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+          - metrics
+          - circuitbreakers
+          - circuitbreakerevents
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

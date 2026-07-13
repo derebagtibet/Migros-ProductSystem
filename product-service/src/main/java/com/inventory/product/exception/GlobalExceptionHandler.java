@@ -33,6 +33,17 @@ public class GlobalExceptionHandler {
                 )
         );
     }
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleServiceUnavailable(ServiceUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                Map.of(
+                        "timestamp", LocalDateTime.now(),
+                        "status", 503,
+                        "error", "Service Unavailable",
+                        "message", ex.getMessage()
+                )
+        );
+    }
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult()

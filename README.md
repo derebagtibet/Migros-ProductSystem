@@ -192,6 +192,184 @@ Product Service
 
 # 🐳 Docker
 
+# Product Service Resilience and Observability
+
+Product Service does not call Category Service directly from validation code anymore.
+The flow is:
+
+```text
+ProductValidator
+        |
+        v
+CategoryGateway
+        |
+        v
+Retry + Circuit Breaker
+        |
+        v
+CategoryServiceClient
+        |
+        v
+Category Service
+```
+
+## Category Gateway
+
+- `CategoryGateway` wraps the existing OpenFeign client.
+- `ProductValidator` keeps validation rules only.
+- The gateway owns external Category Service communication and resilience behavior.
+- Fallback does not return fake category data.
+- If Category Service is unavailable, the fallback logs the failure and throws `ServiceUnavailableException`.
+- `GlobalExceptionHandler` maps this exception to HTTP `503 Service Unavailable`.
+
+Expected fallback response:
+
+```json
+{
+  "timestamp": "...",
+  "status": 503,
+  "error": "Service Unavailable",
+  "message": "Category Service is temporarily unavailable"
+}
+```
+
+## Resilience4j
+
+Product Service uses:
+
+- `resilience4j-spring-boot3`
+- `spring-boot-starter-aop`
+- `spring-boot-starter-actuator`
+
+Configured instance name:
+
+```yaml
+categoryService
+```
+
+The same name is used by:
+
+- `@Retry(name = "categoryService")`
+- `@CircuitBreaker(name = "categoryService")`
+- `resilience4j.retry.instances.categoryService`
+- `resilience4j.circuitbreaker.instances.categoryService`
+
+Retry is applied only to the Category Service lookup through Feign. It is not added directly to Product Service `POST`, `PUT`, or database write methods.
+
+## Feign Timeout
+
+Category Feign client timeout is configured to avoid long blocking calls:
+
+```yaml
+spring:
+  cloud:
+    openfeign:
+      client:
+        config:
+          category-service:
+            connectTimeout: 1000
+            readTimeout: 2000
+```
+
+## Externalized URLs
+
+Category Service URL is externalized:
+
+```yaml
+services:
+  category:
+    url: ${SERVICES_CATEGORY_URL:http://category-service:8082}
+```
+
+Docker Compose sets:
+
+```yaml
+SERVICES_CATEGORY_URL: http://category-service:8082
+```
+
+## Tracing and Zipkin
+
+Spring Cloud Sleuth is not used because it was removed for Spring Boot 3 based projects.
+Product Service uses Micrometer Tracing with Brave and Zipkin reporter.
+
+Zipkin endpoint:
+
+```yaml
+management:
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
+```
+
+Zipkin UI:
+
+```text
+http://localhost:9411
+```
+
+## Trace ID Logging
+
+Product Service logs include trace and span IDs:
+
+```yaml
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+```
+
+## Actuator
+
+Product Service exposes health, info, metrics, and circuit breaker endpoints:
+
+```text
+http://localhost:8081/actuator/health
+http://localhost:8081/actuator/metrics
+```
+
+## Manual Resilience Test
+
+Start services:
+
+```bash
+docker compose up --build
+```
+
+Create product while Category Service is available:
+
+```bash
+curl -i -X POST http://localhost:8081/api/v1/products \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Resilience Test Available\",\"code\":\"R1001\",\"categoryCode\":\"ME\",\"brand\":\"Migros\",\"unit\":\"PIECE\"}"
+```
+
+Stop Category Service:
+
+```bash
+docker compose stop category-service
+```
+
+Create product while Category Service is unavailable:
+
+```bash
+curl -i -X POST http://localhost:8081/api/v1/products \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Resilience Test Unavailable\",\"code\":\"R1002\",\"categoryCode\":\"ME\",\"brand\":\"Migros\",\"unit\":\"PIECE\"}"
+```
+
+Expected result:
+
+```text
+HTTP/1.1 503
+```
+
+Restart Category Service:
+
+```bash
+docker compose start category-service
+```
+
+---
+
 Build
 
 ```bash

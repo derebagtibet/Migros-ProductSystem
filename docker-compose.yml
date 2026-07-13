@@ -16,6 +16,12 @@ services:
       timeout: 5s
       retries: 10
 
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+
   category-service:
     build: ./category-service
     container_name: category-service
@@ -35,10 +41,13 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SERVICES_CATEGORY_URL: http://category-service:8082
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
     depends_on:
       postgres:
         condition: service_healthy
       category-service:
+        condition: service_started
+      zipkin:
         condition: service_started
 
   barcode-service:
