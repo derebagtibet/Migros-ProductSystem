@@ -1,0 +1,10 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: product-service
+
+services:
+  category:
+    url: ${SERVICES_CATEGORY_URL:http://localhost:8082}

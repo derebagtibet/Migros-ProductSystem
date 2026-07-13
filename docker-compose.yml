@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d product_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  category-service:
+    build: ./category-service
+    container_name: category-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SERVICES_CATEGORY_URL: http://category-service:8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      category-service:
+        condition: service_started
+
+  barcode-service:
+    build: ./barcode-service
+    container_name: barcode-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVICES_PRODUCT_URL: http://product-service:8081
+    depends_on:
+      product-service:
+        condition: service_started
+
+volumes:
+  postgres_data:
