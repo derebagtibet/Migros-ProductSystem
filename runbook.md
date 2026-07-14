@@ -1,19 +1,8 @@
-# 🚀 Inventory Management - Runbook
+# Inventory Management Runbook
 
-This document explains how to build and run the Inventory Management Microservices project.
+This runbook is written for macOS zsh and Docker Desktop.
 
----
-
-# Prerequisites
-
-Before running the project, make sure the following software is installed.
-
-- Java 21
-- Maven 3.9+
-- Docker Desktop
-- Git
-
-Verify installation:
+## Prerequisites
 
 ```bash
 java -version
@@ -22,362 +11,112 @@ docker --version
 docker compose version
 ```
 
----
+## Start the Project
 
-# Project Structure
-
-```
-inventory-management
-│
-├── product-service
-├── category-service
-├── barcode-service
-└── docker-compose.yml
-```
-
----
-
-# Step 1 - Clone Repository
+From the repository root:
 
 ```bash
-git clone <repository-url>
-
-cd inventory-management
+cd /path/to/Migros-ProductSystem
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 ```
 
----
-
-# Step 2 - Build Services
-
-Build every microservice.
-
-Product Service
-
-```bash
-cd product-service
-./mvnw clean package -DskipTests
-```
-
-Category Service
-
-```bash
-cd ../category-service
-./mvnw clean package -DskipTests
-```
-
-Barcode Service
-
-```bash
-cd ../barcode-service
-./mvnw clean package -DskipTests
-```
-
-Return to project root.
-
-```bash
-cd ..
-```
-
----
-
-# Step 3 - Start Docker Desktop
-
-Make sure Docker Desktop is running.
-
-Verify:
-
-```bash
-docker info
-```
-
----
-
-# Step 4 - Run Application
-
-Build Docker images and start all containers.
-
-```bash
-docker compose up --build
-```
-
-To run in detached mode:
-
-```bash
-docker compose up --build -d
-```
-
----
-
-# Step 5 - Verify Containers
-
-Check running containers.
+Check containers:
 
 ```bash
 docker compose ps
 ```
 
-Expected containers:
+Expected services: `postgres-db`, `product-service`, `category-service`, `barcode-service`, and `zipkin`.
 
-- postgres-db
-- product-service
-- category-service
-- barcode-service
+## Service URLs
 
----
-
-# Step 6 - Verify APIs
-
-## Product Service
-
-```
-http://localhost:8081/swagger-ui/index.html
+```text
+Product Swagger:  http://localhost:8081/swagger-ui/index.html
+Category Swagger: http://localhost:8082/swagger-ui/index.html
+Barcode Swagger:  http://localhost:8083/swagger-ui/index.html
 ```
 
-## Category Service
-
-```
-http://localhost:8082/swagger-ui/index.html
-```
-
-## Barcode Service
-
-```
-http://localhost:8083/swagger-ui/index.html
-```
-
----
-
-# Step 7 - Verify PostgreSQL
-
-Enter PostgreSQL container.
+## Actuator Health
 
 ```bash
-docker exec -it postgres-db psql -U postgres -d product_db
+curl -sS http://localhost:8081/actuator/health
+curl -sS http://localhost:8082/actuator/health
+curl -sS http://localhost:8083/actuator/health
 ```
 
-Show tables
+Each response must contain `{"status":"UP"}`. The endpoint index and info endpoint are also available at `/actuator` and `/actuator/info`.
 
-```sql
-\dt
-```
+## API Smoke Test
 
-List products
+These commands are valid for macOS zsh. JSON is wrapped in single quotes so its double quotes are preserved.
 
-```sql
-SELECT * FROM products;
-```
-
-Exit PostgreSQL
-
-```sql
-\q
-```
-
----
-
-# Useful Docker Commands
-
-Build
+### Category
 
 ```bash
-docker compose build
+curl -i -X POST 'http://localhost:8082/api/v1/categories' -H 'Content-Type: application/json' -d '{"code":"FR","name":"Fruit","active":true}'
+curl -i 'http://localhost:8082/api/v1/categories'
+curl -i 'http://localhost:8082/api/v1/categories/FR'
 ```
 
-Start
+Category currently has no `PUT` or `DELETE` mapping.
+
+### Product
+
+The product request requires a non-blank name and brand, a five-character code, a two-character category code, and `PIECE` or `KILOGRAM` as unit. The category must exist and be active.
 
 ```bash
-docker compose up
+curl -i -X POST 'http://localhost:8081/api/v1/products' -H 'Content-Type: application/json' -d '{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+curl -i 'http://localhost:8081/api/v1/products'
+curl -i 'http://localhost:8081/api/v1/products/1'
+curl -i -X PUT 'http://localhost:8081/api/v1/products/1' -H 'Content-Type: application/json' -d '{"name":"Apple Updated","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+curl -i -X DELETE 'http://localhost:8081/api/v1/products/1'
 ```
 
-Stop
+Product has `GET BY ID`, not `GET BY CODE`. Replace `1` with the actual product ID returned by POST.
+
+### Barcode
+
+The product must already exist. Valid enum values are `PRODUCT`, `SCALE`, and `CASE`; business rules also depend on the product category and unit. For the sample `FR` product, use `PRODUCT`.
 
 ```bash
-docker compose stop
+curl -i -X POST 'http://localhost:8083/api/v1/barcodes' -H 'Content-Type: application/json' -d '{"productId":1,"type":"PRODUCT"}'
+curl -i 'http://localhost:8083/api/v1/barcodes'
+curl -i 'http://localhost:8083/api/v1/barcodes/product/1'
+curl -i 'http://localhost:8083/api/v1/barcodes/1'
+curl -i -X DELETE 'http://localhost:8083/api/v1/barcodes/1'
 ```
 
-Remove containers
+## Multi-line zsh Example
 
 ```bash
-docker compose down
+curl -i -X POST 'http://localhost:8081/api/v1/products' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
 ```
 
-Remove containers and database volume
+The backslash must be the final character on every continued line.
+
+## Logs and Ports
 
 ```bash
-docker compose down -v
-```
-
-Restart
-
-```bash
-docker compose restart
-```
-
-Show logs
-
-```bash
-docker compose logs
-```
-
-Product Service logs
-
-```bash
-docker compose logs product-service
-```
-
-Barcode Service logs
-
-```bash
-docker compose logs barcode-service
-```
-
-Category Service logs
-
-```bash
-docker compose logs category-service
-```
-
-PostgreSQL logs
-
-```bash
-docker compose logs postgres
-```
-
----
-
-# Common Problems
-
-## Port Already in Use
-
-Check ports.
-
-```bash
+docker compose logs --tail=100 category-service
+docker compose logs --tail=100 product-service
+docker compose logs --tail=100 barcode-service
 lsof -i :8081
 lsof -i :8082
 lsof -i :8083
-lsof -i :5432
 ```
 
-Kill process.
-
-```bash
-kill -9 <PID>
-```
-
-Or stop all Java processes.
-
-```bash
-pkill -f java
-```
-
----
-
-## Docker Daemon Not Running
-
-Start Docker Desktop.
-
-Verify:
-
-```bash
-docker info
-```
-
----
-
-## Rebuild Containers
-
-```bash
-docker compose down
-
-docker compose up --build
-```
-
----
-
-## Rebuild Maven Project
-
-```bash
-./mvnw clean package
-```
-
----
-
-## Clean Docker Cache
-
-```bash
-docker system prune -a
-```
-
----
-
-# API Test Examples
-
-Create Product
-
-```bash
-curl -X POST http://localhost:8081/api/v1/products \
--H "Content-Type: application/json" \
--d '{
-"name":"Apple",
-"code":"FR001",
-"categoryCode":"FR",
-"brand":"Migros",
-"unit":"KILOGRAM"
-}'
-```
-
-Get Products
-
-```bash
-curl http://localhost:8081/api/v1/products
-```
-
-Create Barcode
-
-```bash
-curl -X POST http://localhost:8083/api/v1/barcodes \
--H "Content-Type: application/json" \
--d '{
-"productId":1,
-"type":"PRODUCT"
-}'
-```
-
-Get Product Barcodes
-
-```bash
-curl http://localhost:8083/api/v1/barcodes/product/1
-```
-
----
-
-# Development Profiles
-
-| Profile | Database |
-|----------|----------|
-| dev | H2 |
-| prod | PostgreSQL |
-
----
-
-# Shutdown
-
-Stop all services.
+## Stop the Project
 
 ```bash
 docker compose down
 ```
 
-If database reset is required:
+To also delete the PostgreSQL volume:
 
 ```bash
 docker compose down -v
 ```
-
----
-
-# Maintainer
-
-Tibet Derebağ
-
-Inventory Management Microservices

@@ -1,251 +1,224 @@
-# Migros Product System - Presentation Test Guide
+# Migros Product System - macOS zsh Test Guide
 
-Bu dosya sunum sirasinda sistemi Docker ile ayaga kaldirip Product Service, Category Service ve Barcode Service akisini test etmek icin hazirlandi.
+This guide contains copy-pasteable commands for testing the three services from a macOS zsh terminal.
 
-## 1. Proje Klasorune Git
+## 1. Open and Start the Project
 
-```powershell
-cd C:\Users\dereb\Desktop\inventory-management\Migros-ProductSystem
-```
+Use the actual local path on your Mac:
 
-## 2. Servisleri Paketle
-
-Docker image'lari `target/*.jar` dosyasini kopyaladigi icin once jar dosyalarini olustur.
-
-```powershell
-mvn -q -f category-service\pom.xml package -DskipTests
-mvn -q -f product-service\pom.xml package -DskipTests
-mvn -q -f barcode-service\pom.xml package -DskipTests
-```
-
-Beklenen sonuc: Komutlar hata vermeden biter.
-
-## 3. Docker Servislerini Baslat
-
-```powershell
-docker compose up -d --build
-```
-
-Beklenen sonuc: Container'lar baslar.
-
-Kontrol:
-
-```powershell
+```bash
+cd /path/to/Migros-ProductSystem
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 docker compose ps
 ```
 
-Beklenen durum:
+## 2. Health Checks
 
-```text
-postgres-db       Up / healthy
-category-service  Up
-product-service   Up
-barcode-service   Up
-zipkin            Up
+```bash
+curl -sS http://localhost:8081/actuator/health
+curl -sS http://localhost:8082/actuator/health
+curl -sS http://localhost:8083/actuator/health
 ```
 
-## 4. Product Service Kapanma Hatasini Kontrol Et
+Expected: every response contains `"status":"UP"`.
 
-```powershell
-docker compose logs --tail=80 product-service
+```bash
+curl -sS http://localhost:8082/actuator
+curl -sS http://localhost:8082/actuator/info
+curl -sS http://localhost:8083/actuator
+curl -sS http://localhost:8083/actuator/info
 ```
 
-Beklenen sonuc:
+## 3. Category API
 
-```text
-Started ProductServiceApplication
-Tomcat started on port 8081
+`CategoryResponse` has no Bean Validation annotations. Its fields are `code`, `name`, and `active`.
+
+### Create Category
+
+Single line:
+
+```bash
+curl -i -X POST 'http://localhost:8082/api/v1/categories' -H 'Content-Type: application/json' -d '{"code":"FR","name":"Fruit","active":true}'
 ```
 
-Gorulmemesi gereken hata:
+Multi-line:
 
-```text
-Application run failed
-fallbackExecutor
-RxJava3FallbackDecorator
+```bash
+curl -i -X POST 'http://localhost:8082/api/v1/categories' \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"FR","name":"Fruit","active":true}'
 ```
 
-## 5. Health Check Testleri
+### Get All Categories
 
-```powershell
-curl http://localhost:8081/actuator/health
-curl http://localhost:8082/actuator/health
-curl http://localhost:8083/actuator/health
+```bash
+curl -i 'http://localhost:8082/api/v1/categories'
 ```
 
-Beklenen sonuc:
+### Get Category by Code
+
+```bash
+curl -i 'http://localhost:8082/api/v1/categories/FR'
+```
+
+Category currently has no `PUT` or `DELETE` mapping, so those operations are not included as valid tests.
+
+## 4. Product API
+
+Valid product payload:
 
 ```json
-{"status":"UP"}
+{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}
 ```
 
-Not: Bir serviste actuator health kapaliysa bu adim yerine ilgili GET endpoint'i test edilebilir.
-
-## 6. Category Olustur
-
-Product Service, product olustururken Category Service'e gider. Bu yuzden once kategori olusturuyoruz.
-
-```powershell
-curl -X POST http://localhost:8082/api/v1/categories `
-  -H "Content-Type: application/json" `
-  -d "{\"code\":\"FR\",\"name\":\"Fruit\",\"active\":true}"
-```
-
-Beklenen sonuc:
-
-```json
-{
-  "code": "FR",
-  "name": "Fruit",
-  "active": true
-}
-```
-
-Kategori listesini kontrol et:
-
-```powershell
-curl http://localhost:8082/api/v1/categories
-```
-
-## 7. Product Olustur
-
-Fruit + KILOGRAM icin barcode kurallarina gore PRODUCT ve CASE tipi uygundur.
-
-```powershell
-curl -X POST http://localhost:8081/api/v1/products `
-  -H "Content-Type: application/json" `
-  -d "{\"name\":\"Apple\",\"code\":\"FR001\",\"categoryCode\":\"FR\",\"brand\":\"Migros\",\"unit\":\"KILOGRAM\"}"
-```
-
-Beklenen sonuc:
-
-```json
-{
-  "id": 1,
-  "name": "Apple",
-  "code": "FR001",
-  "categoryCode": "FR",
-  "brand": "Migros",
-  "unit": "KILOGRAM"
-}
-```
-
-Product listesini kontrol et:
-
-```powershell
-curl http://localhost:8081/api/v1/products
-```
-
-## 8. Product Service'in Category Service ile Konustugunu Goster
-
-Olmayan kategoriyle product olusturmayi dene.
-
-```powershell
-curl -X POST http://localhost:8081/api/v1/products `
-  -H "Content-Type: application/json" `
-  -d "{\"name\":\"Invalid Product\",\"code\":\"XX001\",\"categoryCode\":\"XX\",\"brand\":\"Migros\",\"unit\":\"PIECE\"}"
-```
-
-Beklenen sonuc: Product olusmaz, hata doner.
-
-Bu test Product Service'in Category Service'e gidip kategori kontrolu yaptigini gosterir.
-
-## 9. Barcode Olustur
-
-Once PRODUCT barcode olustur:
-
-```powershell
-curl -X POST http://localhost:8083/api/v1/barcodes `
-  -H "Content-Type: application/json" `
-  -d "{\"productId\":1,\"type\":\"PRODUCT\"}"
-```
-
-Beklenen sonuc:
-
-```json
-{
-  "id": 1,
-  "code": "PRD-FR001",
-  "type": "PRODUCT",
-  "productId": 1
-}
-```
-
-Ayni product icin CASE barcode olustur:
-
-```powershell
-curl -X POST http://localhost:8083/api/v1/barcodes `
-  -H "Content-Type: application/json" `
-  -d "{\"productId\":1,\"type\":\"CASE\"}"
-```
-
-Beklenen sonuc:
-
-```json
-{
-  "code": "CASE-FR001",
-  "type": "CASE",
-  "productId": 1
-}
-```
-
-Product'a ait barcode'lari listele:
-
-```powershell
-curl http://localhost:8083/api/v1/barcodes/product/1
-```
-
-## 10. Barcode Business Rule Testi
-
-Fruit + KILOGRAM icin SCALE barcode izinli degil. Bunu test et:
-
-```powershell
-curl -X POST http://localhost:8083/api/v1/barcodes `
-  -H "Content-Type: application/json" `
-  -d "{\"productId\":1,\"type\":\"SCALE\"}"
-```
-
-Beklenen sonuc: Barcode olusmaz, hata doner.
-
-Bu test Barcode Service'in Product Service'ten product bilgisini alip is kurallarini uyguladigini gosterir.
-
-## 11. Duplicate Barcode Testi
-
-Ayni product icin ikinci kez PRODUCT barcode olusturmayi dene:
-
-```powershell
-curl -X POST http://localhost:8083/api/v1/barcodes `
-  -H "Content-Type: application/json" `
-  -d "{\"productId\":1,\"type\":\"PRODUCT\"}"
-```
-
-Beklenen sonuc:
+Validation rules:
 
 ```text
-This product already has barcode type: PRODUCT
+name:         @NotBlank
+code:         @NotBlank and exactly 5 characters
+categoryCode: @NotBlank and exactly 2 characters
+brand:        @NotBlank
+unit:         @NotNull, either PIECE or KILOGRAM
 ```
 
-## 12. Sunumda Soylenebilecek Kisa Ozet
+Create the `FR` category first. The category must be active.
 
-```text
-Product Service Docker'da kapanmiyordu cunku Resilience4j dependency'leri farkli versiyonlardan geliyordu.
-resilience4j-spring-boot3 2.3.0 kullanilirken alt moduller 2.1.0 geliyordu.
-Resilience4j BOM eklenerek butun Resilience4j modulleri 2.3.0'a sabitlendi.
-application-prod.yml dosyasindaki datasource ve JPA ayarlari da duzeltildi.
-Su anda Product Service Docker'da ayakta kaliyor ve Category Service ile Feign uzerinden konusabiliyor.
+### Create Product
+
+Single line:
+
+```bash
+curl -i -X POST 'http://localhost:8081/api/v1/products' -H 'Content-Type: application/json' -d '{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
 ```
 
-## 13. Temiz Kapatma
+Multi-line:
 
-Sunum bittikten sonra container'lari kapatmak icin:
+```bash
+curl -i -X POST 'http://localhost:8081/api/v1/products' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+```
 
-```powershell
+Save the returned `id`. The examples below use `1`; replace it with the actual ID when necessary.
+
+### Get All Products
+
+```bash
+curl -i 'http://localhost:8081/api/v1/products'
+```
+
+### Get Product by ID
+
+```bash
+curl -i 'http://localhost:8081/api/v1/products/1'
+```
+
+There is no Product `GET BY CODE` endpoint. The controller exposes only `GET /api/v1/products/{id}`.
+
+### Update Product
+
+Single line:
+
+```bash
+curl -i -X PUT 'http://localhost:8081/api/v1/products/1' -H 'Content-Type: application/json' -d '{"name":"Apple Updated","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+```
+
+Multi-line:
+
+```bash
+curl -i -X PUT 'http://localhost:8081/api/v1/products/1' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Apple Updated","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+```
+
+### Delete Product
+
+```bash
+curl -i -X DELETE 'http://localhost:8081/api/v1/products/1'
+```
+
+## 5. Barcode API
+
+`BarcodeCreateRequest` requires non-null `productId` and `type`. Valid types are `PRODUCT`, `SCALE`, and `CASE`.
+
+For an `FR` product with `KILOGRAM`, the current barcode business rules allow `PRODUCT`.
+
+### Create Barcode
+
+Single line:
+
+```bash
+curl -i -X POST 'http://localhost:8083/api/v1/barcodes' -H 'Content-Type: application/json' -d '{"productId":1,"type":"PRODUCT"}'
+```
+
+Multi-line:
+
+```bash
+curl -i -X POST 'http://localhost:8083/api/v1/barcodes' \
+  -H 'Content-Type: application/json' \
+  -d '{"productId":1,"type":"PRODUCT"}'
+```
+
+### Get All Barcodes
+
+```bash
+curl -i 'http://localhost:8083/api/v1/barcodes'
+```
+
+### Get Barcodes by Product
+
+```bash
+curl -i 'http://localhost:8083/api/v1/barcodes/product/1'
+```
+
+### Get Barcode by ID
+
+```bash
+curl -i 'http://localhost:8083/api/v1/barcodes/1'
+```
+
+### Delete Barcode
+
+```bash
+curl -i -X DELETE 'http://localhost:8083/api/v1/barcodes/1'
+```
+
+## 6. Negative Validation Tests
+
+Invalid product: `code` is not five characters, `categoryCode` is not two characters, and `unit` is not a valid enum value.
+
+```bash
+curl -i -X POST 'http://localhost:8081/api/v1/products' -H 'Content-Type: application/json' -d '{"name":"Invalid Product","code":"BAD1","categoryCode":"F","brand":"Migros","unit":"BOX"}'
+```
+
+Invalid barcode: both required fields are null.
+
+```bash
+curl -i -X POST 'http://localhost:8083/api/v1/barcodes' -H 'Content-Type: application/json' -d '{"productId":null,"type":null}'
+```
+
+## 7. Why zsh Printed command not found
+
+This is incorrect:
+
+```bash
+curl -X POST http://localhost:8081/api/v1/products
+-H "Content-Type: application/json"
+-d '{"name":"Apple"}'
+```
+
+Without a trailing `\\`, zsh treats `-H` and `-d` as new commands. Use one line or use a backslash at the end of every continued line:
+
+```bash
+curl -X POST 'http://localhost:8081/api/v1/products' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+```
+
+## 8. Stop Docker
+
+```bash
 docker compose down
 ```
-
-Database volume'unu da silmek istersen:
-
-```powershell
-docker compose down -v
-```
-
