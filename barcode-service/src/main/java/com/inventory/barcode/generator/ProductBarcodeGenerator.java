@@ -5,10 +5,10 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Component
-public class CaseBarcodeGenerator {
+public class ProductBarcodeGenerator {
 
     public String generate() {
-        int number = ThreadLocalRandom.current().nextInt(1000, 10000);
+        long number = ThreadLocalRandom.current().nextLong(100_000_000L, 1_000_000_000L);
         return String.valueOf(number);
     }
 }
