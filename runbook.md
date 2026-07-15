@@ -57,8 +57,10 @@ These commands are valid for macOS zsh. JSON is wrapped in single quotes so its 
 ```bash
 curl -i -X POST 'http://localhost:8082/api/v1/categories' -H 'Content-Type: application/json' -d '{"code":"FR","name":"Fruit","active":true}'
 curl -i 'http://localhost:8082/api/v1/categories'
-curl -i 'http://localhost:8082/api/v1/categories/FR'
+curl -i 'http://localhost:8082/api/v1/categories/ME'
 ```
+
+The service already contains these active categories: `ME`, `BA`, `ET`, `SU`, and `TM`. The POST command above adds `FR` for an optional custom category test.
 
 Category currently has no `PUT` or `DELETE` mapping.
 
@@ -66,19 +68,33 @@ Category currently has no `PUT` or `DELETE` mapping.
 
 The product request requires a non-blank name and brand, a five-character code, a two-character category code, and `PIECE` or `KILOGRAM` as unit. The category must exist and be active.
 
+Use this valid Swagger example. Do not leave generated placeholder values such as `"code":"string"` or `"categoryCode":"st"` in the request:
+
+```json
+{
+  "name": "Tibet Product",
+  "code": "ME001",
+  "categoryCode": "ME",
+  "brand": "Migros",
+  "unit": "PIECE"
+}
+```
+
 ```bash
-curl -i -X POST 'http://localhost:8081/api/v1/products' -H 'Content-Type: application/json' -d '{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+curl -i -X POST 'http://localhost:8081/api/v1/products' -H 'Content-Type: application/json' -d '{"name":"Tibet Product","code":"ME001","categoryCode":"ME","brand":"Migros","unit":"PIECE"}'
 curl -i 'http://localhost:8081/api/v1/products'
 curl -i 'http://localhost:8081/api/v1/products/1'
-curl -i -X PUT 'http://localhost:8081/api/v1/products/1' -H 'Content-Type: application/json' -d '{"name":"Apple Updated","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+curl -i -X PUT 'http://localhost:8081/api/v1/products/1' -H 'Content-Type: application/json' -d '{"name":"Tibet Product Updated","code":"ME001","categoryCode":"ME","brand":"Migros","unit":"PIECE"}'
 curl -i -X DELETE 'http://localhost:8081/api/v1/products/1'
 ```
 
 Product has `GET BY ID`, not `GET BY CODE`. Replace `1` with the actual product ID returned by POST.
 
+If Product Service returns `503 Category Service is temporarily unavailable`, first check the category code. This message can occur when a non-existing code such as `st` is sent from Swagger. It does not necessarily mean that Docker networking is down.
+
 ### Barcode
 
-The product must already exist. Valid enum values are `PRODUCT`, `SCALE`, and `CASE`; business rules also depend on the product category and unit. For the sample `FR` product, use `PRODUCT`.
+The product must already exist. Valid enum values are `PRODUCT`, `SCALE`, and `CASE`; business rules also depend on the product category and unit. For the sample `ME` product with `PIECE`, use `PRODUCT`.
 
 ```bash
 curl -i -X POST 'http://localhost:8083/api/v1/barcodes' -H 'Content-Type: application/json' -d '{"productId":1,"type":"PRODUCT"}'
@@ -93,7 +109,7 @@ curl -i -X DELETE 'http://localhost:8083/api/v1/barcodes/1'
 ```bash
 curl -i -X POST 'http://localhost:8081/api/v1/products' \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Apple","code":"FR001","categoryCode":"FR","brand":"Migros","unit":"KILOGRAM"}'
+  -d '{"name":"Tibet Product","code":"ME001","categoryCode":"ME","brand":"Migros","unit":"PIECE"}'
 ```
 
 The backslash must be the final character on every continued line.
