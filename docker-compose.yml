@@ -41,6 +41,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SERVICES_CATEGORY_URL: http://category-service:8082
+      SERVICES_BARCODE_URL: http://barcode-service:8083
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
     depends_on:
       postgres:
@@ -56,9 +57,14 @@ services:
     ports:
       - "8083:8083"
     environment:
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
       SERVICES_PRODUCT_URL: http://product-service:8081
     depends_on:
+      postgres:
+        condition: service_healthy
       product-service:
         condition: service_started
 

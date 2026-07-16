@@ -31,6 +31,8 @@ spring:
 services:
   category:
     url: ${SERVICES_CATEGORY_URL:http://category-service:8082}
+  barcode:
+    url: ${SERVICES_BARCODE_URL:http://barcode-service:8083}
 
 resilience4j:
   retry:

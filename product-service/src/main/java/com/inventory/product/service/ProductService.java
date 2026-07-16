@@ -10,6 +10,8 @@ import com.inventory.product.entity.Product;
 
 import com.inventory.product.exception.ResourceNotFoundException;
 
+import com.inventory.product.feign.BarcodeServiceClient;
+
 import com.inventory.product.mapper.ProductMapper;
 
 import com.inventory.product.repository.ProductRepository;
@@ -31,6 +33,8 @@ public class ProductService {
     private final ProductRepository productRepository;
 
     private final ProductValidator productValidator;
+
+    private final BarcodeServiceClient barcodeServiceClient;
 
     public ProductResponse create(ProductCreateRequest request) {
 
@@ -91,6 +95,8 @@ public class ProductService {
     public void delete(Long id) {
 
         Product product = findProductById(id);
+
+        barcodeServiceClient.deleteBarcodesByProductId(id);
 
         productRepository.delete(product);
 

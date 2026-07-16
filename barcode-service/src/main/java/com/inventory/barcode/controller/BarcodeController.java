@@ -70,4 +70,14 @@ public class BarcodeController {
 
     }
 
+    @DeleteMapping("/product/{productId}")
+
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+
+    public void deleteBarcodesByProductId(@PathVariable Long productId) {
+
+        barcodeService.deleteByProductId(productId);
+
+    }
+
 }

@@ -34,7 +34,6 @@ This project consists of three independent microservices that communicate with e
 - Spring Validation
 - Spring Cloud OpenFeign
 - PostgreSQL
-- H2 Database (Development)
 - Docker
 - Docker Compose
 - Swagger / OpenAPI
@@ -460,7 +459,7 @@ POST /api/v1/barcodes
 
 Development
 
-- H2 Database
+- PostgreSQL via Docker or local PostgreSQL
 
 Production
 

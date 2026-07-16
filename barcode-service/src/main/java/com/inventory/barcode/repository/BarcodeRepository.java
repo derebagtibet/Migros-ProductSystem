@@ -15,4 +15,6 @@ public interface BarcodeRepository extends JpaRepository<Barcode, Long> {
     long countByProductIdAndType(Long productId, BarcodeType type);
 
     List<Barcode> findByProductId(Long productId);
+
+    void deleteByProductId(Long productId);
 }

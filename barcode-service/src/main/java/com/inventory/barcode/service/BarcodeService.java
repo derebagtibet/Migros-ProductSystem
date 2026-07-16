@@ -13,6 +13,7 @@ import com.inventory.barcode.repository.BarcodeRepository;
 import com.inventory.barcode.validation.BarcodeRuleValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -75,6 +76,11 @@ public class BarcodeService {
                 .orElseThrow(() -> new ResourceNotFoundException("Barcode not found with id: " + id));
 
         barcodeRepository.delete(barcode);
+    }
+
+    @Transactional
+    public void deleteByProductId(Long productId) {
+        barcodeRepository.deleteByProductId(productId);
     }
 
     private long getNextSequence(Long productId, BarcodeType type) {

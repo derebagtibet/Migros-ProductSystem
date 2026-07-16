@@ -6,8 +6,8 @@ spring:
     name: barcode-service
 
 services:
-  category:
-    url: ${SERVICES_CATEGORY_URL:http://localhost:8082}
+  product:
+    url: ${SERVICES_PRODUCT_URL:http://localhost:8081}
 
 management:
   endpoints:
