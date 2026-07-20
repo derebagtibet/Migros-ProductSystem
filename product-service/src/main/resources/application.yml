@@ -22,6 +22,12 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -33,6 +39,14 @@ services:
     url: ${SERVICES_CATEGORY_URL:http://category-service:8082}
   barcode:
     url: ${SERVICES_BARCODE_URL:http://barcode-service:8083}
+
+app:
+  kafka:
+    topics:
+      product-created: product-created
+    outbox:
+      publish-delay-ms: ${KAFKA_OUTBOX_PUBLISH_DELAY_MS:5000}
+      max-attempts: ${KAFKA_OUTBOX_MAX_ATTEMPTS:3}
 
 resilience4j:
   retry:

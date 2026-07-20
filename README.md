@@ -489,4 +489,130 @@ Software Engineering Student
 
 Backend Developer
 
-Java • Spring Boot • Microservices • Docker • PostgreSQL
+Java / Spring Boot / Microservices / Docker / PostgreSQL
+
+---
+
+# Kafka Product Created Flow
+
+Kafka bu projede Product Service ile Barcode Service arasinda event tabanli entegrasyon icin kullanilir.
+
+- Producer: Product Service
+- Consumer: Barcode Service
+- Topic: `product-created`
+- Dead Letter Topic: `product-created.DLT`
+- Consumer group: `barcode-service-group`
+
+## Mesaj Akisi
+
+```text
+POST /api/v1/products
+        |
+        v
+Product Service urunu PostgreSQL'e kaydeder
+        |
+        v
+Product Service product-created eventini outbox_events tablosuna kaydeder
+        |
+        v
+Product Outbox Publisher bekleyen eventi Kafka'ya gonderir
+        |
+        v
+Barcode Service product-created topic'ini dinler
+        |
+        v
+Ayni productId icin PRODUCT barkod yoksa otomatik barkod olusturur
+```
+
+## Kafka Mesaj Ornegi
+
+```json
+{
+  "eventId": "UUID",
+  "eventType": "PRODUCT_CREATED",
+  "eventVersion": 1,
+  "occurredAt": "2026-07-17T12:00:00Z",
+  "productId": 1,
+  "productCode": "ME001",
+  "productName": "Meyve Suyu",
+  "categoryCode": "ME",
+  "brand": "Test Brand",
+  "unit": "PIECE"
+}
+```
+
+## Lokal Calistirma
+
+Kafka Docker Compose ile baslatilip servisler IDE'den lokal calistirilabilir. Lokal servisler varsayilan olarak `localhost:9092` adresini kullanir.
+
+```bash
+docker compose up -d postgres kafka zipkin category-service
+```
+
+Product Service:
+
+```bash
+cd product-service
+mvn spring-boot:run
+```
+
+Barcode Service:
+
+```bash
+cd barcode-service
+mvn spring-boot:run
+```
+
+## Docker ile Calistirma
+
+Container icindeki servisler `KAFKA_BOOTSTRAP_SERVERS=kafka:29092` ile Kafka'ya baglanir.
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose ps
+```
+
+Kafka loglari:
+
+```bash
+docker compose logs kafka
+```
+
+Topic listesi:
+
+```bash
+docker exec kafka /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+```
+
+## Test Komutlari
+
+```bash
+cd product-service
+mvn clean test
+
+cd ../barcode-service
+mvn clean test
+```
+
+## Manuel Test
+
+```bash
+curl -X POST http://localhost:8081/api/v1/products \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Meyve Suyu",
+    "code": "ME001",
+    "categoryCode": "ME",
+    "brand": "Test Brand",
+    "unit": "PIECE"
+  }'
+```
+
+Olusan barkod ilgili productId ile kontrol edilebilir:
+
+```bash
+curl http://localhost:8083/api/v1/barcodes/product/1
+```
+
+Not: Product Service Transactional Outbox Pattern kullanir. Urun kaydi ve outbox eventi ayni veritabani transaction'i icinde kaydedilir. Kafka gecici olarak kapaliysa outbox eventi `FAILED` durumuna alinip sinirli sayida tekrar denenir.

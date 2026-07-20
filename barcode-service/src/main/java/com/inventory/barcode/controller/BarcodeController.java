@@ -6,6 +6,7 @@ import com.inventory.barcode.dto.BarcodeResponse;
 
 import com.inventory.barcode.service.BarcodeService;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
@@ -73,6 +74,11 @@ public class BarcodeController {
     @DeleteMapping("/product/{productId}")
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
+
+    @Operation(
+            summary = "Delete barcodes by product id",
+            description = "Deletes only barcode records linked to the product id. It does not delete the product itself."
+    )
 
     public void deleteBarcodesByProductId(@PathVariable Long productId) {
 

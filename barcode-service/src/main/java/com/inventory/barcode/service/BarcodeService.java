@@ -6,18 +6,22 @@ import com.inventory.barcode.dto.BarcodeResponse;
 import com.inventory.barcode.dto.ProductResponse;
 import com.inventory.barcode.entity.Barcode;
 import com.inventory.barcode.enums.BarcodeType;
+import com.inventory.barcode.event.ProductCreatedEvent;
+import com.inventory.barcode.exception.BusinessException;
 import com.inventory.barcode.exception.ResourceNotFoundException;
 import com.inventory.barcode.generator.BarcodeGeneratorFacade;
 import com.inventory.barcode.mapper.BarcodeMapper;
 import com.inventory.barcode.repository.BarcodeRepository;
 import com.inventory.barcode.validation.BarcodeRuleValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class BarcodeService {
 
@@ -46,6 +50,46 @@ public class BarcodeService {
                 .build();
 
         Barcode savedBarcode = barcodeRepository.save(barcode);
+
+        return BarcodeMapper.toResponse(savedBarcode);
+    }
+
+    @Transactional
+    public BarcodeResponse createProductBarcodeIfAbsent(ProductCreatedEvent event) {
+        if (event.productId() == null || event.productId() <= 0) {
+            throw new BusinessException("Product id is required for product-created event");
+        }
+
+        if (barcodeRepository.existsByProductIdAndType(event.productId(), BarcodeType.PRODUCT)) {
+            log.info("PRODUCT barcode already exists for productId={}, skipping", event.productId());
+            return null;
+        }
+
+        ProductResponse product = new ProductResponse(
+                event.productId(),
+                event.productName(),
+                event.productCode(),
+                event.categoryCode(),
+                event.brand(),
+                event.unit()
+        );
+
+        barcodeRuleValidator.validate(product, BarcodeType.PRODUCT);
+
+        String barcodeCode = barcodeGeneratorFacade.generate(
+                BarcodeType.PRODUCT,
+                product.code(),
+                0
+        );
+
+        Barcode barcode = Barcode.builder()
+                .code(barcodeCode)
+                .type(BarcodeType.PRODUCT)
+                .productId(product.id())
+                .build();
+
+        Barcode savedBarcode = barcodeRepository.save(barcode);
+        log.info("Created PRODUCT barcode id={} for productId={}", savedBarcode.getId(), product.id());
 
         return BarcodeMapper.toResponse(savedBarcode);
     }

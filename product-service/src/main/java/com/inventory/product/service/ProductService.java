@@ -14,6 +14,8 @@ import com.inventory.product.feign.BarcodeServiceClient;
 
 import com.inventory.product.mapper.ProductMapper;
 
+import com.inventory.product.outbox.ProductOutboxService;
+
 import com.inventory.product.repository.ProductRepository;
 
 import com.inventory.product.validation.ProductValidator;
@@ -21,6 +23,7 @@ import com.inventory.product.validation.ProductValidator;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -36,6 +39,9 @@ public class ProductService {
 
     private final BarcodeServiceClient barcodeServiceClient;
 
+    private final ProductOutboxService productOutboxService;
+
+    @Transactional
     public ProductResponse create(ProductCreateRequest request) {
 
         productValidator.validateForCreate(request);
@@ -43,6 +49,8 @@ public class ProductService {
         Product product = ProductMapper.toEntity(request);
 
         Product savedProduct = productRepository.save(product);
+
+        productOutboxService.saveProductCreatedEvent(savedProduct);
 
         return ProductMapper.toResponse(savedProduct);
 

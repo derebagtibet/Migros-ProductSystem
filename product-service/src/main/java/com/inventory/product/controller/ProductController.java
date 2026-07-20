@@ -8,6 +8,7 @@ import com.inventory.product.dto.ProductUpdateRequest;
 
 import com.inventory.product.service.ProductService;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
@@ -71,6 +72,11 @@ public class ProductController {
     @DeleteMapping("/{id}")
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
+
+    @Operation(
+            summary = "Delete product and its barcodes",
+            description = "Deletes the product record from Product Service and also removes all barcodes linked to this product id."
+    )
 
     public void deleteProduct(@PathVariable Long id) {
 
